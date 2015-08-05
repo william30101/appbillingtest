@@ -32,7 +32,7 @@ import android.widget.Toast;
 public class MainActivity extends Activity {
 
 	private Context context;
-	private String tag;
+	private String tag = "inAppBilling";
 
 	private IInAppBillingService mService;
 	private ServiceConnection mServiceConn = new ServiceConnection() {
@@ -53,9 +53,6 @@ public class MainActivity extends Activity {
 	// View
 	private Button btnTest, btnCheck, btnBuy, btnConsume;
 	
-
-	private String TAG = "inAppBilling";
-	
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
@@ -64,9 +61,6 @@ public class MainActivity extends Activity {
 
 		// Context
 				context = getApplicationContext();
-
-				// log tag
-				tag = "in_app_billing_ex";
 
 				// Bind Service
 				final boolean blnBind = bindService(new Intent(
@@ -229,10 +223,31 @@ public class MainActivity extends Activity {
 						if (!blnBind) return;
 						if (mService == null) return;
 
-						int response;
+						int response = 0;
 						try {
-							response = mService.consumePurchase(3, getPackageName(), "inapp:com.ethanf.in_app_billing_ex:android.test.purchased");
+							//String purchaseToken = "inapp:" + getPackageName() + ":" + productID;
+							//response = mService.consumePurchase(3, getPackageName(), purchaseToken);
 
+							// Note the null is the continueToken you may not get all of the purchased items
+							// in one call - check ownedItems.getString("INAPP_CONTINUATION_TOKEN") for 
+							// the next continueToken and re-call with that until you don't get a token
+							Bundle ownedItems = mService.getPurchases(3, getPackageName(), "inapp", null);
+							// Check response
+							int responseCode = ownedItems.getInt("RESPONSE_CODE");
+							if (responseCode != 0) {
+							   throw new Exception("Error");
+							}
+							// Get the list of purchased items
+							ArrayList<String> purchaseDataList = 
+							    ownedItems.getStringArrayList("INAPP_PURCHASE_DATA_LIST");
+							for (String purchaseData : purchaseDataList) {
+							    JSONObject o = new JSONObject(purchaseData);
+							    String purchaseToken = o.optString("token", o.optString("purchaseToken"));
+							    // Consume purchaseToken, handling any errors
+							    mService.consumePurchase(3, getPackageName(), purchaseToken);
+							}
+							
+							
 							Toast.makeText(context, "consumePurchase() - success : return " + String.valueOf(response), Toast.LENGTH_SHORT).show();
 							Log.i(tag, "consumePurchase() - success : return " + String.valueOf(response));
 						} catch (RemoteException e) {
@@ -241,6 +256,9 @@ public class MainActivity extends Activity {
 							Toast.makeText(context, "consumePurchase() - fail!", Toast.LENGTH_SHORT).show();
 							Log.w(tag, "consumePurchase() - fail!");
 							return;
+						} catch (Exception e) {
+							// TODO Auto-generated catch block
+							e.printStackTrace();
 						}
 
 						if (response != 0) return;
